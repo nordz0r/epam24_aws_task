@@ -104,7 +104,7 @@ resource "aws_route_table_association" "subnet-2" {
 resource "aws_efs_file_system" "wp_efs" {
   encrypted = true
   tags = {
-    Name = "WP_EFS"
+    Name    = "WP_EFS"
     Owner   = "Andrei Shcheglov"
     Project = "AWS_Task"
   }
@@ -128,20 +128,18 @@ resource "aws_efs_mount_target" "subnet-2" {
 
 
 # Create Security Groups
-# For EC2 Instances 80, 443, 22
+# For EC2 Instances 80, 22
 resource "aws_security_group" "sg_ec2" {
   name        = "SG_for_EC2"
   description = "Allow HTTP inbound traffic"
   vpc_id      = aws_vpc.wp_vcp.id
 
-  dynamic ingress {
-    for_each = ["80", "443"]
-    content {
-      from_port   = ingress.value
-      to_port     = ingress.value
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
+  ingress {
+    description = "Allow all inbound traffic on the 80 port"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
@@ -257,6 +255,15 @@ resource "aws_security_group" "sg_elb" {
 } 
 
 
+## OUTPUT
+output "aws_subnet-1" {
+  value = aws_subnet.subnet-1.id
+}
+
+output "aws_subnet-2" {
+  value = aws_subnet.subnet-2.id
+}
+
 # Crete subnet for RDS
 resource "aws_db_subnet_group" "default" {
   name       = "main"
@@ -270,7 +277,7 @@ resource "aws_db_instance" "mysql" {
   instance_class                  = "db.t2.micro"
   db_subnet_group_name            = aws_db_subnet_group.default.name
   enabled_cloudwatch_logs_exports = ["general", "error"]
-  name                            = var.rds_credentials.dbname
+  db_name                         = var.rds_credentials.dbname
   username                        = var.rds_credentials.username
   password                        = var.rds_credentials.password
   allocated_storage               = 20
@@ -282,8 +289,110 @@ resource "aws_db_instance" "mysql" {
   vpc_security_group_ids          = [aws_security_group.sg_rds.id]
   skip_final_snapshot             = true
   depends_on                      = [aws_security_group.sg_rds, aws_db_subnet_group.default]
+  tags = {
+    Name = "RDS mysql"
+    Owner = "Andrei Shcheglov"
+    Project = "AWS_Task"
+  }
 }
- 
+
+
+# Load Balancer
+## Create ALB (Couse ELB deprecated @ 2022)
+resource "aws_lb" "wp_lb" {
+  name               = "LoadBalancer"
+  internal           = false
+  load_balancer_type = "application"
+  subnets            = [aws_subnet.subnet-1.id, aws_subnet.subnet-2.id]
+  security_groups    = [aws_security_group.sg_elb.id]
+  enable_deletion_protection = false
+  tags = {
+    Name = "LoadBalancer"
+    Owner = "Andrei Shcheglov"
+    Project = "AWS_Task"
+  }
+}
+
+## Create Target Groups
+resource "aws_lb_target_group" "wp_tg" {
+  name     = "TargetGroup"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.wp_vcp.id
+  tags = {
+    Name = "TG_for_ELB"
+    Owner = "Andrei Shcheglov"
+    Project = "AWS_Task"
+  }
+}
+
+## Create Listener 80 port
+resource "aws_lb_listener" "wp_lb" {
+  load_balancer_arn = aws_lb.wp_lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.wp_tg.arn
+  }
+}
+
+## Register Web1 in TG
+resource "aws_lb_target_group_attachment" "tg_attach_wp1" {
+  target_group_arn = aws_lb_target_group.wp_tg.arn
+  target_id        = aws_instance.web1.id
+  port             = 80
+}
+
+## Register Web2 in TG
+resource "aws_lb_target_group_attachment" "tg_attach_wp2" {
+  target_group_arn = aws_lb_target_group.wp_tg.arn
+  target_id        = aws_instance.web2.id
+  port             = 80
+}
+
+
+# Instances
+## Create Control Instance (Install WP)
+resource "aws_instance" "web1" {
+  ami = data.aws_ami.last_amazon.id
+  instance_type   = var.instance_type
+  security_groups = [aws_security_group.sg_ec2.id]
+  subnet_id       = aws_subnet.subnet-1.id
+  associate_public_ip_address = true
+  key_name        = "NorD"
+  #user_data       = data.template_file.user_data_wordpress.rendered
+  depends_on      = [aws_db_instance.mysql, aws_lb.wp_lb]
+  lifecycle {
+    create_before_destroy = true
+  }
+  tags = {
+    Name = "WebServer1"
+    Owner = "Andrei Shcheglov"
+    Project = "AWS_Task"
+  }
+}
+
+## Create second instance
+resource "aws_instance" "web2" {
+  ami = data.aws_ami.last_amazon.id
+  instance_type   = var.instance_type
+  security_groups = [aws_security_group.sg_ec2.id]
+  subnet_id       = aws_subnet.subnet-2.id
+  associate_public_ip_address = true
+  key_name        = "NorD"
+  #user_data       = data.template_file.user_data_wordpress.rendered
+  depends_on      = [aws_db_instance.mysql, aws_lb.wp_lb, aws_instance.web1]
+  lifecycle {
+    create_before_destroy = true
+  }
+  tags = {
+    Name = "WebServer2"
+    Owner = "Andrei Shcheglov"
+    Project = "AWS_Task"
+  }
+}
+
 
 
 
@@ -293,3 +402,10 @@ resource "aws_db_instance" "mysql" {
 # }
 
 
+output "efs_dns_name" {
+  value = aws_efs_file_system.wp_efs.dns_name
+}
+
+output "Balancer-dns-name" {
+  value = aws_lb.wp_lb.dns_name
+}
