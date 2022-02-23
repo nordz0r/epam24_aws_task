@@ -351,6 +351,19 @@ resource "aws_lb_target_group_attachment" "tg_attach_wp2" {
   port             = 80
 }
 
+# UserData 
+# data "template_file" "user_data" {
+#  template           = file ("./user_data.tpl")
+#  vars = {
+#     db_username      = var.rds_credentials.dbname
+#     db_password      = var.rds_credentials.username
+#     db_name          = var.rds_credentials.password
+#     db_host          = aws_db_instance.mysql.endpoint
+#     efs              = aws_efs_file_system.wp_efs.id
+#     url              = aws_lb.wp_lb.dns_name
+#  }
+# }
+
 
 # Instances
 ## Create Control Instance (Install WP)
@@ -361,7 +374,7 @@ resource "aws_instance" "web1" {
   subnet_id       = aws_subnet.subnet-1.id
   associate_public_ip_address = true
   key_name        = "NorD"
-  #user_data       = data.template_file.user_data_wordpress.rendered
+  # user_data       = data.template_file.user_data.rendered
   depends_on      = [aws_db_instance.mysql, aws_lb.wp_lb]
   lifecycle {
     create_before_destroy = true
@@ -381,7 +394,7 @@ resource "aws_instance" "web2" {
   subnet_id       = aws_subnet.subnet-2.id
   associate_public_ip_address = true
   key_name        = "NorD"
-  #user_data       = data.template_file.user_data_wordpress.rendered
+  # user_data       = data.template_file.user_data.rendered
   depends_on      = [aws_db_instance.mysql, aws_lb.wp_lb, aws_instance.web1]
   lifecycle {
     create_before_destroy = true
@@ -406,6 +419,14 @@ output "efs_dns_name" {
   value = aws_efs_file_system.wp_efs.dns_name
 }
 
+output "efs_dns_id" {
+  value = aws_efs_file_system.wp_efs.id
+}
+
 output "Balancer-dns-name" {
   value = aws_lb.wp_lb.dns_name
+}
+
+output "RDS" {
+  value = aws_db_instance.mysql.endpoint
 }

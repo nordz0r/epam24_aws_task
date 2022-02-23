@@ -34,3 +34,4 @@ override.tf.json
 .terraform.lock.hcl
 variables.tf 
 install_wordpress.sh
+wordpress.sql
