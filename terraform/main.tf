@@ -282,9 +282,6 @@ resource "aws_db_instance" "mysql" {
   password                        = var.rds_credentials.password
   allocated_storage               = 20
   max_allocated_storage           = 0
-  backup_retention_period         = 7
-  backup_window                   = "00:00-00:30"
-  maintenance_window              = "Sun:21:00-Sun:21:30"
   storage_type                    = "gp2"
   vpc_security_group_ids          = [aws_security_group.sg_rds.id]
   skip_final_snapshot             = true
@@ -351,18 +348,19 @@ resource "aws_lb_target_group_attachment" "tg_attach_wp2" {
   port             = 80
 }
 
-# UserData 
-# data "template_file" "user_data" {
-#  template           = file ("./user_data.tpl")
-#  vars = {
-#     db_username      = var.rds_credentials.dbname
-#     db_password      = var.rds_credentials.username
-#     db_name          = var.rds_credentials.password
-#     db_host          = aws_db_instance.mysql.endpoint
-#     efs              = aws_efs_file_system.wp_efs.id
-#     url              = aws_lb.wp_lb.dns_name
-#  }
-# }
+## UserData 
+data "template_file" "user_data" {
+  template           = file ("./user_data.tpl")
+  vars = {
+    db_user          = var.rds_credentials.dbname
+    db_password      = var.rds_credentials.username
+    db_name          = var.rds_credentials.password
+    db_host          = aws_db_instance.mysql.endpoint
+    efs              = aws_efs_file_system.wp_efs.id
+    url              = aws_lb.wp_lb.dns_name
+  }
+  depends_on = [aws_db_instance.mysql, aws_efs_file_system.wp_efs, aws_lb.wp_lb]
+}
 
 
 # Instances
@@ -374,7 +372,7 @@ resource "aws_instance" "web1" {
   subnet_id       = aws_subnet.subnet-1.id
   associate_public_ip_address = true
   key_name        = "NorD"
-  # user_data       = data.template_file.user_data.rendered
+  user_data       = data.template_file.user_data.rendered
   depends_on      = [aws_db_instance.mysql, aws_lb.wp_lb]
   lifecycle {
     create_before_destroy = true
@@ -394,7 +392,7 @@ resource "aws_instance" "web2" {
   subnet_id       = aws_subnet.subnet-2.id
   associate_public_ip_address = true
   key_name        = "NorD"
-  # user_data       = data.template_file.user_data.rendered
+  user_data       = data.template_file.user_data.rendered
   depends_on      = [aws_db_instance.mysql, aws_lb.wp_lb, aws_instance.web1]
   lifecycle {
     create_before_destroy = true
@@ -407,26 +405,7 @@ resource "aws_instance" "web2" {
 }
 
 
-
-
-
-# output "sg_ec2" {
-#   value = aws_security_group.sg_ec2.id
-# }
-
-
-output "efs_dns_name" {
-  value = aws_efs_file_system.wp_efs.dns_name
-}
-
-output "efs_dns_id" {
-  value = aws_efs_file_system.wp_efs.id
-}
-
+# Output LoadBalancer DNS Name
 output "Balancer-dns-name" {
   value = aws_lb.wp_lb.dns_name
-}
-
-output "RDS" {
-  value = aws_db_instance.mysql.endpoint
 }
