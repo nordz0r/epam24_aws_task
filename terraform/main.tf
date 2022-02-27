@@ -10,12 +10,6 @@ provider "aws" {
   region = "eu-west-2"
 }
 
-# Get my IP
-module "myip" {
-  source  = "4ops/myip/http"
-  version = "1.0.0"
-}
-
 # AZ
 data "aws_availability_zones" "available" { }
 resource "aws_default_subnet" "default_az1" {
@@ -142,14 +136,6 @@ resource "aws_security_group" "sg_ec2" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "SSH from my IP"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["${module.myip.address}/32"]
   }
 
   egress {

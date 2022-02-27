@@ -12,9 +12,9 @@ variable rds_credentials {
     password = "db_password"
     dbname = "db_wordpress"
   }
-  
+
   description = "RDS user, password and database"
-} 
+}
 
 
 variable "instance_type" {
