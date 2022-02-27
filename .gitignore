@@ -31,6 +31,3 @@ override.tf.json
 .aws/
 .terraform/
 *.tfstate*
-.terraform.lock.hcl
-install_wordpress.sh
-wordpress.sql
