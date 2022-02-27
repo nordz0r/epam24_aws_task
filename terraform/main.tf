@@ -7,7 +7,9 @@
 
 # Region settings
 provider "aws" {
-  region = "eu-west-2"
+  region     = var.region
+  access_key = var.access_key
+  secret_key = var.secret_key
 }
 
 # AZ
@@ -35,50 +37,32 @@ data "aws_ami" "last_amazon"{
 resource "aws_vpc" "wp_vcp" {
   cidr_block = "192.168.0.0/16"
   enable_dns_hostnames = true
-  tags = {
-    Name    = "WP_VPC"
-    Owner   = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "WP_VPC" })
 }
 
-# Create Subnets
+## Create Subnets
 resource "aws_subnet" "subnet-1" {
   vpc_id            = aws_vpc.wp_vcp.id
   cidr_block        = "192.168.100.0/24"
   availability_zone = data.aws_availability_zones.available.names[0]
-
-  tags = {
-    Name    = "Subnet in ${data.aws_availability_zones.available.names[0]}"
-    Owner   = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "Subnet in ${data.aws_availability_zones.available.names[0]}" })
 }
 
 resource "aws_subnet" "subnet-2" {
   vpc_id            = aws_vpc.wp_vcp.id
   cidr_block        = "192.168.200.0/24"
   availability_zone = data.aws_availability_zones.available.names[1]
-
-  tags = {
-    Name    = "Subnet in ${data.aws_availability_zones.available.names[1]}"
-    Owner   = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "Subnet in ${data.aws_availability_zones.available.names[1]}" })
 }
 
-# Create Internet Gateway for WP_VPC
+## Create Internet Gateway for WP_VPC
 resource "aws_internet_gateway" "wp_gateway" {
   vpc_id = aws_vpc.wp_vcp.id
-  tags = {
-    Name    = "WP_IG"
-    Owner   = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "WP_IG" })
   depends_on = [aws_vpc.wp_vcp]
 }
 
-# Route to Internet Gateway
+## Route to Internet Gateway
 resource "aws_route" "route_to_wp_gateway" {
   route_table_id         = aws_vpc.wp_vcp.main_route_table_id
   destination_cidr_block = "0.0.0.0/0"
@@ -86,7 +70,7 @@ resource "aws_route" "route_to_wp_gateway" {
   depends_on             = [aws_internet_gateway.wp_gateway, aws_vpc.wp_vcp]
 }
 
-# Create route association
+## Create route association
 resource "aws_route_table_association" "subnet-1" {
   subnet_id      = aws_subnet.subnet-1.id
   route_table_id = aws_vpc.wp_vcp.main_route_table_id
@@ -100,14 +84,10 @@ resource "aws_route_table_association" "subnet-2" {
 # Create EFS
 resource "aws_efs_file_system" "wp_efs" {
   encrypted = true
-  tags = {
-    Name    = "WP_EFS"
-    Owner   = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "WP_EFS" })
 }
 
-# Targets for EFS
+## Targets for EFS
 resource "aws_efs_mount_target" "subnet-1" {
   file_system_id  = aws_efs_file_system.wp_efs.id
   subnet_id       = aws_subnet.subnet-1.id
@@ -129,7 +109,6 @@ resource "aws_security_group" "sg_ec2" {
   name        = "SG_for_EC2"
   description = "Allow HTTP inbound traffic"
   vpc_id      = aws_vpc.wp_vcp.id
-
   ingress {
     description = "Allow all inbound traffic on the 80 port"
     from_port   = 80
@@ -137,19 +116,13 @@ resource "aws_security_group" "sg_ec2" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   egress {
     from_port        = 0
     to_port          = 0
     protocol         = "-1"
     cidr_blocks      = ["0.0.0.0/0"]
   }
-
-  tags = {
-    Name = "SG for EC2"
-    Owner = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "SG for EC2" })
 }
 
 # For EFS
@@ -157,7 +130,6 @@ resource "aws_security_group" "sg_efs" {
   name        = "SG_for_EFS"
   description = "Allow NFS inbound traffic"
   vpc_id      = aws_vpc.wp_vcp.id
-
   ingress {
     description     = "NFS from EC2"
     from_port       = 2049
@@ -165,20 +137,13 @@ resource "aws_security_group" "sg_efs" {
     protocol        = "tcp"
     security_groups = [aws_security_group.sg_ec2.id]
   }
-
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = {
-    Name = "SG for EFS"
-    Owner = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
-
+  tags = merge(var.tags, { Name = "SG for EFS" })
   depends_on = [aws_security_group.sg_ec2]
 }
 
@@ -187,7 +152,6 @@ resource "aws_security_group" "sg_rds" {
   name        = "SG_for_RDS"
   description = "Allow MySQL inbound traffic"
   vpc_id      = aws_vpc.wp_vcp.id
-
   ingress {
     description     = "RDS from EC2"
     from_port       = 3306
@@ -195,20 +159,13 @@ resource "aws_security_group" "sg_rds" {
     protocol        = "tcp"
     security_groups = [aws_security_group.sg_ec2.id]
   }
-
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = {
-    Name = "RDS from EC2"
-    Owner = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
-
+  tags = merge(var.tags, { Name = "RDS from EC2" })
   depends_on = [aws_security_group.sg_ec2]
 }
 
@@ -217,7 +174,6 @@ resource "aws_security_group" "sg_elb" {
   name        = "SG_for_ELB"
   description = "Allow traffic for ELB"
   vpc_id      = aws_vpc.wp_vcp.id
-
   ingress {
     description = "Allow all inbound traffic on the 80 port"
     from_port   = 80
@@ -225,20 +181,13 @@ resource "aws_security_group" "sg_elb" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   egress {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.sg_ec2.id]
   }
-
-  tags = {
-    Name = "SG for ELB"
-    Owner = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
-
+  tags = merge(var.tags, { Name = "SG for ELB" })
   depends_on = [aws_security_group.sg_ec2]
 }
 
@@ -251,7 +200,7 @@ resource "aws_db_subnet_group" "default" {
 resource "aws_db_instance" "mysql" {
   identifier                      = "mysql"
   engine                          = "mysql"
-  engine_version                  = "5.7.33"
+  engine_version                  = "8.0.27"
   instance_class                  = "db.t2.micro"
   db_subnet_group_name            = aws_db_subnet_group.default.name
   enabled_cloudwatch_logs_exports = ["general", "error"]
@@ -264,11 +213,7 @@ resource "aws_db_instance" "mysql" {
   vpc_security_group_ids          = [aws_security_group.sg_rds.id]
   skip_final_snapshot             = true
   depends_on                      = [aws_security_group.sg_rds, aws_db_subnet_group.default]
-  tags = {
-    Name = "RDS mysql"
-    Owner = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "RDS mysql" })
 }
 
 
@@ -281,11 +226,7 @@ resource "aws_lb" "wp_lb" {
   subnets                    = [aws_subnet.subnet-1.id, aws_subnet.subnet-2.id]
   security_groups            = [aws_security_group.sg_elb.id]
   enable_deletion_protection = false
-  tags = {
-    Name = "LoadBalancer"
-    Owner = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "LoadBalancer" })
 }
 
 ## Create Target Groups
@@ -294,11 +235,7 @@ resource "aws_lb_target_group" "wp_tg" {
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.wp_vcp.id
-  tags = {
-    Name = "TG_for_ELB"
-    Owner = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "TG_for_LB" })
 }
 
 ## Create Listener 80 port
@@ -354,11 +291,7 @@ resource "aws_instance" "web1" {
   lifecycle {
     create_before_destroy = true
   }
-  tags = {
-    Name    = "WebServer1"
-    Owner   = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "WebServer1" })
 }
 
 ## Create second instance
@@ -373,11 +306,7 @@ resource "aws_instance" "web2" {
   lifecycle {
     create_before_destroy = true
   }
-  tags = {
-    Name = "WebServer2"
-    Owner = "Andrei Shcheglov"
-    Project = "AWS_Task"
-  }
+  tags = merge(var.tags, { Name = "WebServer2" })
 }
 
 
