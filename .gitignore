@@ -31,3 +31,4 @@ override.tf.json
 .aws/
 .terraform/
 *.tfstate*
+.terraform.lock.hcl

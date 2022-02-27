@@ -314,3 +314,11 @@ resource "aws_instance" "web2" {
 output "Balancer-Wordpress" {
   value = "http://${aws_lb.wp_lb.dns_name}"
 }
+
+output "Wordpress-Credentials" {
+  value = "URL: http://${aws_lb.wp_lb.dns_name}/wp-admin, Login: admin, Password: db_password"
+}
+
+output "Database-Credentials" {
+  value = "DB: aws_db_instance.mysql.endpoint, Login: db_admin, Password: db_password"
+}
