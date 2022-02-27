@@ -20,3 +20,8 @@ Output data:
 * Balancer-Wordpress URL
 * Wordpress credentials
 * Database credentials
+
+Check:
+* Go to the LoadBalancer home page
+* F5 (refresh page)
+* Site-title must show current ec2-instance hostname
