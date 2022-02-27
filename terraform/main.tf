@@ -1,17 +1,20 @@
 # AWS Task
 # 20220220 by NorD
+# It is necessary to set the accounting data in the variables
+# export AWS_ACCESS_KEY_ID="ACCESS_KEY"
+# export AWS_SECRET_ACCESS_KEY="ACCESS_KEY_PASSWORD"
 
 
 # Region settings
-provider "aws" { 
-  region = "eu-central-1"
+provider "aws" {
+  region = "eu-west-2"
 }
 
 # Get my IP
 module "myip" {
   source  = "4ops/myip/http"
   version = "1.0.0"
-} 
+}
 
 # AZ
 data "aws_availability_zones" "available" { }
@@ -21,7 +24,7 @@ resource "aws_default_subnet" "default_az1" {
 
 resource "aws_default_subnet" "default_az2" {
   availability_zone = data.aws_availability_zones.available.names[1]
-} 
+}
 
 # Last ami
 data "aws_ami" "last_amazon"{
@@ -37,7 +40,7 @@ data "aws_ami" "last_amazon"{
 # Create VPC
 resource "aws_vpc" "wp_vcp" {
   cidr_block = "192.168.0.0/16"
-  enable_dns_hostnames = true 
+  enable_dns_hostnames = true
   tags = {
     Name    = "WP_VPC"
     Owner   = "Andrei Shcheglov"
@@ -79,7 +82,7 @@ resource "aws_internet_gateway" "wp_gateway" {
     Project = "AWS_Task"
   }
   depends_on = [aws_vpc.wp_vcp]
-} 
+}
 
 # Route to Internet Gateway
 resource "aws_route" "route_to_wp_gateway" {
@@ -87,7 +90,7 @@ resource "aws_route" "route_to_wp_gateway" {
   destination_cidr_block = "0.0.0.0/0"
   gateway_id             = aws_internet_gateway.wp_gateway.id
   depends_on             = [aws_internet_gateway.wp_gateway, aws_vpc.wp_vcp]
-} 
+}
 
 # Create route association
 resource "aws_route_table_association" "subnet-1" {
@@ -108,7 +111,7 @@ resource "aws_efs_file_system" "wp_efs" {
     Owner   = "Andrei Shcheglov"
     Project = "AWS_Task"
   }
-} 
+}
 
 # Targets for EFS
 resource "aws_efs_mount_target" "subnet-1" {
@@ -126,9 +129,8 @@ resource "aws_efs_mount_target" "subnet-2" {
 }
 
 
-
 # Create Security Groups
-# For EC2 Instances 80, 22
+## For EC2 Instances 80
 resource "aws_security_group" "sg_ec2" {
   name        = "SG_for_EC2"
   description = "Allow HTTP inbound traffic"
@@ -147,7 +149,7 @@ resource "aws_security_group" "sg_ec2" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["${module.myip.address}/32"] 
+    cidr_blocks = ["${module.myip.address}/32"]
   }
 
   egress {
@@ -252,23 +254,13 @@ resource "aws_security_group" "sg_elb" {
   }
 
   depends_on = [aws_security_group.sg_ec2]
-} 
-
-
-## OUTPUT
-output "aws_subnet-1" {
-  value = aws_subnet.subnet-1.id
-}
-
-output "aws_subnet-2" {
-  value = aws_subnet.subnet-2.id
 }
 
 # Crete subnet for RDS
 resource "aws_db_subnet_group" "default" {
   name       = "main"
   subnet_ids = [aws_subnet.subnet-1.id, aws_subnet.subnet-2.id]
-} 
+}
 
 resource "aws_db_instance" "mysql" {
   identifier                      = "mysql"
@@ -297,11 +289,11 @@ resource "aws_db_instance" "mysql" {
 # Load Balancer
 ## Create ALB (Couse ELB deprecated @ 2022)
 resource "aws_lb" "wp_lb" {
-  name               = "LoadBalancer"
-  internal           = false
-  load_balancer_type = "application"
-  subnets            = [aws_subnet.subnet-1.id, aws_subnet.subnet-2.id]
-  security_groups    = [aws_security_group.sg_elb.id]
+  name                       = "LoadBalancer"
+  internal                   = false
+  load_balancer_type         = "application"
+  subnets                    = [aws_subnet.subnet-1.id, aws_subnet.subnet-2.id]
+  security_groups            = [aws_security_group.sg_elb.id]
   enable_deletion_protection = false
   tags = {
     Name = "LoadBalancer"
@@ -348,13 +340,13 @@ resource "aws_lb_target_group_attachment" "tg_attach_wp2" {
   port             = 80
 }
 
-## UserData 
+## UserData
 data "template_file" "user_data" {
   template           = file ("./user_data.tpl")
   vars = {
-    db_user          = var.rds_credentials.dbname
-    db_password      = var.rds_credentials.username
-    db_name          = var.rds_credentials.password
+    db_user          = var.rds_credentials.username
+    db_password      = var.rds_credentials.password
+    db_name          = var.rds_credentials.dbname
     db_host          = aws_db_instance.mysql.endpoint
     efs              = aws_efs_file_system.wp_efs.id
     url              = aws_lb.wp_lb.dns_name
@@ -371,15 +363,14 @@ resource "aws_instance" "web1" {
   security_groups = [aws_security_group.sg_ec2.id]
   subnet_id       = aws_subnet.subnet-1.id
   associate_public_ip_address = true
-  key_name        = "NorD"
   user_data       = data.template_file.user_data.rendered
   depends_on      = [aws_db_instance.mysql, aws_lb.wp_lb]
   lifecycle {
     create_before_destroy = true
   }
   tags = {
-    Name = "WebServer1"
-    Owner = "Andrei Shcheglov"
+    Name    = "WebServer1"
+    Owner   = "Andrei Shcheglov"
     Project = "AWS_Task"
   }
 }
@@ -391,7 +382,6 @@ resource "aws_instance" "web2" {
   security_groups = [aws_security_group.sg_ec2.id]
   subnet_id       = aws_subnet.subnet-2.id
   associate_public_ip_address = true
-  key_name        = "NorD"
   user_data       = data.template_file.user_data.rendered
   depends_on      = [aws_db_instance.mysql, aws_lb.wp_lb, aws_instance.web1]
   lifecycle {
@@ -406,6 +396,6 @@ resource "aws_instance" "web2" {
 
 
 # Output LoadBalancer DNS Name
-output "Balancer-dns-name" {
-  value = aws_lb.wp_lb.dns_name
+output "Balancer-Wordpress" {
+  value = "http://${aws_lb.wp_lb.dns_name}"
 }

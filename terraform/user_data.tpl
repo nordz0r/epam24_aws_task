@@ -33,7 +33,7 @@ systemctl restart php-fpm.service
 install_packages(){
 	# Install Apache and efs-utils
 	yum update -y
-	yum install -y httpd amazon-efs-utils 
+	yum install -y httpd amazon-efs-utils
 }
 
 check_installed_wp(){
@@ -48,10 +48,10 @@ install_wp(){
 	# Download latest version
 	find /var/www -type d -exec chmod 2775 {} \;
 	find /var/www -type f -exec chmod 0664 {} \;
+	curl https://wordpress.org/latest.tar.gz | tar zx --strip-components=1 -C /var/www/html/
 	chown apache:apache /var/www/html -R
-	curl https://wordpress.org/latest.tar.gz | sudo -u apache tar zx --strip-components=1 -C /var/www/html/
-	
-	# Create config	
+
+	# Create config
 	cd /var/www/html
 	cp wp-config-sample.php wp-config.php
 	sed -i "s/localhost/${db_host}/g" wp-config.php
@@ -64,10 +64,13 @@ define('WP_MEMORY_LIMIT', '128M');
 EOF
 
 	# Install via cli
-	wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -O /usr/local/sbin/wp 
-	chmod +x /usr/local/sbin/wp 
+	wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -O /usr/local/sbin/wp
+	chmod +x /usr/local/sbin/wp
 	sudo -u apache /usr/local/sbin/wp core install --url=http://${url} --title='Andrei Shcheglov AWS Task' --admin_user='admin' --admin_password='${db_password}' --admin_email='admin@wp.aws'
-	sudo -u apache /usr/local/sbin/wp post create --post_type=post --post_status=publish --post_title="My first post by $(curl http://checkip.amazonaws.com)"
+	# Install custom theme
+	sudo -u apache /usr/local/sbin/wp theme install twentyseventeen --activate
+	# Change header to EC2-Hostname
+	sed -i "s|bloginfo( 'name' )|echo shell_exec('hostname')|g" /var/www/html/wp-content/themes/twentyseventeen/template-parts/header/site-branding.php
 }
 
 configure_apache(){
@@ -86,6 +89,5 @@ start(){
 	check_installed_wp
 	configure_apache
 }
-
 
 start
