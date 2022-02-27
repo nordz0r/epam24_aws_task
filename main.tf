@@ -320,5 +320,5 @@ output "Wordpress-Credentials" {
 }
 
 output "Database-Credentials" {
-  value = "DB: aws_db_instance.mysql.endpoint, Login: db_admin, Password: db_password"
+  value = "DB: ${aws_db_instance.mysql.endpoint}, Login: db_admin, Password: db_password"
 }
