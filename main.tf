@@ -1,9 +1,5 @@
-# AWS Task
+# AWS Task https://github.com/nordz0r/epam24_aws_task/
 # 20220220 by NorD
-# It is necessary to set the accounting data in the variables
-# export AWS_ACCESS_KEY_ID="ACCESS_KEY"
-# export AWS_SECRET_ACCESS_KEY="ACCESS_KEY_PASSWORD"
-
 
 # Region settings
 provider "aws" {
