@@ -6,6 +6,10 @@ AWS Task Epam Stream24:
 
 The task is implemented with terraform
 
+Requirements:
+* Terraform >= v1.1.6
+* IAM Permissions: AdministratorAccess
+
 Install:
 * git clone https://github.com/nordz0r/epam24_aws_task
 * cd epam24_aws_task
