@@ -10,13 +10,6 @@ provider "aws" {
 
 # AZ
 data "aws_availability_zones" "available" { }
-resource "aws_default_subnet" "default_az1" {
-  availability_zone = data.aws_availability_zones.available.names[0]
-}
-
-resource "aws_default_subnet" "default_az2" {
-  availability_zone = data.aws_availability_zones.available.names[1]
-}
 
 # Last ami
 data "aws_ami" "last_amazon"{
